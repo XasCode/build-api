@@ -1,0 +1,109 @@
+resource "google_cloudbuild_trigger" "build-trigger" {
+  project = local.project.id
+
+  trigger_template {
+    branch_name = "main"
+    repo_name   = "test-build-api-empty"
+    project_id = local.project.id
+  }
+
+  build {
+    step {
+      id = "0"
+      name = "gcr.io/cloud-builders/git"
+      entrypoint = "git"
+      args = ["clone", "https://source.developers.google.com/p/${local.project.id}/r/${google_sourcerepo_repository.test-build-api-repo.name}"]
+      timeout = "30s"
+    }
+    step {
+      id = "1"
+      name = "gcr.io/cloud-builders/git"
+      entrypoint = "bash"
+      args = [
+        "-c",
+        "cd ${google_sourcerepo_repository.test-build-api-repo.name} && git config init.defaultBranch main && git branch -m main"
+      ]
+      timeout = "30s"
+      wait_for = ["0"]
+    }
+    step {
+      id = "2"
+      name = "gcr.io/cloud-builders/git"
+      entrypoint = "bash"
+      args = [
+        "-c",
+        "cd ${google_sourcerepo_repository.test-build-api-repo.name} && git remote add upstream https://github.com/XasCode/build-api.git && git fetch upstream"
+      ]
+      timeout = "30s"
+      wait_for = ["1"]
+    }
+    step {
+      id = "3"
+      name = "gcr.io/cloud-builders/git"
+      entrypoint = "bash"
+      args = [
+        "-c",
+        "cd ${google_sourcerepo_repository.test-build-api-repo.name} && git config user.email \"none@xascode.dev\" && git config user.name \"none\""
+      ]
+      timeout = "30s"
+      wait_for = ["2"]
+    }
+    step {
+      id = "4"
+      name = "gcr.io/cloud-builders/git"
+      entrypoint = "bash"
+      args = [
+        "-c",
+        "cd ${google_sourcerepo_repository.test-build-api-repo.name} && git merge upstream/main --allow-unrelated-histories"
+      ]
+      timeout = "30s"
+      wait_for = ["3"]
+    }
+  #    step {
+  #      id = "5"
+  #      name = "gcr.io/cloud-builders/git"
+  #      entrypoint = "bash"
+  #      args = [
+  #        "-c",
+  #        "cd ${google_sourcerepo_repository.test-build-api-repo.name} && git add ."
+  #      ]
+  #      timeout = "30s"
+  #      wait_for = ["4"]
+  #    }
+  #    step {
+  #      id = "6.1"
+  #      name = "gcr.io/cloud-builders/git"
+  #      entrypoint = "bash"
+  #      args = [
+  #        "-c",
+  #        "cd ${google_sourcerepo_repository.test-build-api-repo.name} && git branch --unset-upstream"
+  #      ]
+  #      timeout = "30s"
+  #      wait_for = ["6"]
+  #    }
+  #    step {
+  #      id = "6"
+  #      name = "gcr.io/cloud-builders/git"
+  #      entrypoint = "bash"
+  #      args = [
+  #        "-c",
+  #        "cd ${google_sourcerepo_repository.test-build-api-repo.name} && git commit -m \"sync build\""
+  #      ]
+  #      timeout = "30s"
+  #      wait_for = ["5"]
+  #    }
+    step {
+      id = "5"
+      name = "gcr.io/cloud-builders/git"
+      entrypoint = "bash"
+      args = [
+        "-c",
+        "cd ${google_sourcerepo_repository.test-build-api-repo.name} && git push origin main"
+      ]
+      timeout = "30s"
+      wait_for = ["4"]
+    }
+  }
+
+  depends_on = [ google_project_service.cloud_build, null_resource.init_empty_repo ]
+}

@@ -1,0 +1,16 @@
+resource "google_cloudfunctions_function" "function-build-api" {
+  name        = "function-${local.project.name}-${random_id.random.hex}"
+  description = "function-${local.project.name}-${random_id.random.hex}"
+  runtime     = "nodejs14"
+  project     = local.project.id
+  region      = "us-east1"
+  available_memory_mb   = 256
+  timeout               = 60
+  source_archive_bucket = google_storage_bucket.bucket.name
+  source_archive_object = google_storage_bucket_object.archive.name
+  service_account_email = google_service_account.svc-check-projects.email
+  trigger_http          = true
+  entry_point           = "helloGET"
+
+  depends_on = [google_project_service.cloud_functions] #, google_project_service.cloud_build]
+}

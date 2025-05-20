@@ -1,0 +1,46 @@
+resource "google_cloudfunctions_function_iam_binding" "binding" {
+  project = local.project.id
+  region = local.region
+  cloud_function = google_cloudfunctions_function.function-build-api.name
+  role = "roles/cloudfunctions.invoker"
+  members = [
+    "allUsers"
+  ]
+}
+
+resource "google_cloudfunctions_function_iam_binding" "svcacct" {
+  project = local.project.id
+  region = local.region
+  cloud_function = google_cloudfunctions_function.function-build-api.name
+  role = google_organization_iam_custom_role.role-svc-create-apis.name
+  members = [
+    "serviceAccount:${google_service_account.svc-check-projects.email}"
+  ]
+}
+
+resource "google_secret_manager_secret_iam_binding" "binding" {
+  project = local.project.id
+  secret_id = google_secret_manager_secret.secret-basic.id
+  role = google_organization_iam_custom_role.role-svc-create-apis.name
+  members = [
+    "serviceAccount:${google_service_account.svc-check-projects.email}"
+  ]
+}
+
+resource "google_project_iam_binding" "project" {
+  project = local.project.id
+  role = google_organization_iam_custom_role.role-svc-create-apis.name
+  members = [
+    "serviceAccount:${google_service_account.svc-check-projects.email}"
+  ]
+}
+
+
+resource "google_sourcerepo_repository_iam_binding" "binding" {
+  project = local.project.id
+  repository = google_sourcerepo_repository.test-build-api-repo.name
+  role = "roles/source.writer"
+  members = [
+    "serviceAccount:${local.project.number}@cloudbuild.gserviceaccount.com",
+  ]
+}

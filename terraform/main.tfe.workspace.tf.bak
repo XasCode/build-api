@@ -1,0 +1,37 @@
+locals {
+  repo_name = "auto"
+}
+
+resource "tfe_workspace" "auto-devl" {
+  name         = "${local.repo_name}-devl"
+  organization = var.tf_org
+  auto_apply = true
+  file_triggers_enabled = false
+  queue_all_runs = true
+  speculative_enabled = false
+  working_directory = "terraform"
+  vcs_repo {
+    identifier = github_repository.auto.full_name
+    branch = "main"
+    ingress_submodules = false
+    oauth_token_id = tfe_oauth_client.xascode.oauth_token_id
+  }
+}
+
+resource "tfe_oauth_client" "xascode" {
+  organization     = var.gh_org
+  api_url          = "https://api.github.com"
+  http_url         = "https://github.com"
+  oauth_token      = var.gh_token
+  service_provider = "github"
+}
+
+resource "tfe_notification_configuration" "test" {
+  name             = "my-test-notification-configuration"
+  enabled          = true
+  destination_type = "generic"
+  triggers         = ["run:completed"]
+  url              = google_cloudfunctions_function.function-build-api.https_trigger_url
+  workspace_id     = tfe_workspace.auto-devl.id
+  token            = var.build
+}

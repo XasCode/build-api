@@ -1,0 +1,64 @@
+resource "google_api_gateway_api" "build_api" {
+  project  = local.project.id
+  provider = google-beta
+  api_id = "build-api"
+
+  depends_on = [ google_project_service.api_gateway ]
+}
+
+resource "google_api_gateway_api_config" "build_api_cfg" {
+  project = local.project.id
+  provider = google-beta
+  api = google_api_gateway_api.build_api.api_id
+  api_config_id = "build-api-cfg"
+
+  openapi_documents {
+    document {
+      path = "spec.yaml"
+      contents = base64encode(local_file.build_api_openapi.content)
+    }
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [ google_project_service.api_gateway ]
+}
+
+resource "google_api_gateway_gateway" "build_api_gw" {
+  project = local.project.id
+  region = local.region
+  provider = google-beta
+  api_config = google_api_gateway_api_config.build_api_cfg.id
+  gateway_id = "build-api-gw"
+
+  depends_on = [ google_project_service.api_gateway, google_cloudfunctions_function.function-build-api ]
+}
+
+resource "local_file" "build_api_openapi" {
+    filename = "openapi.yaml" #"${path.module}/openapi.yaml"
+    content = <<-EOT
+      # openapi2-functions.yaml
+      swagger: '2.0'
+      info:
+        title: ${google_api_gateway_api.build_api.api_id}
+        description: Sample API on API Gateway with a Google Cloud Functions backend
+        version: 1.0.0
+      schemes:
+        - https
+      produces:
+        - application/json
+      paths:
+        /build-api:
+          get:
+            summary: helloGET
+            operationId: hello
+            x-google-backend:
+              address: https://${local.region}-${local.project.id}.cloudfunctions.net/helloGET
+            responses:
+              '200':
+                description: A successful response
+                schema:
+                  type: string
+      EOT
+}

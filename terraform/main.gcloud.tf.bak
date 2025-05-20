@@ -1,0 +1,39 @@
+module "gcloud" {
+  source  = "terraform-google-modules/gcloud/google"
+
+  create_cmd_entrypoint  = "gcloud"
+  create_cmd_body        = "version"
+  destroy_cmd_entrypoint = "gcloud"
+  destroy_cmd_body       = "version"
+
+  skip_download = false
+  use_tf_google_credentials_env_var = true
+}
+
+resource "null_resource" "init_empty_repo" {
+    provisioner "local-exec" {
+    command = <<EOH
+PATH=/terraform/terraform/${module.gcloud.bin_dir}:$PATH
+cp ${module.gcloud.bin_dir}/git-credential-gcloud.sh ${module.gcloud.bin_dir}/credential-gcloud.sh
+gcloud source repos clone ${google_sourcerepo_repository.test-build-api-empty.name} --project=${local.project.id}
+cd ${google_sourcerepo_repository.test-build-api-empty.name}
+git config init.defaultBranch main
+git config user.email "none@xascode.dev" && git config user.name "none"
+git config credential.'https://source.developers.google.com'.helper gcloud.sh
+git checkout -b main
+touch deleteme.txt
+git add deleteme.txt
+git commit -m "automated initialization"
+git push -u origin main
+EOH
+  }
+
+  depends_on = [ module.gcloud ]
+}
+
+resource "google_sourcerepo_repository" "test-build-api-empty" {
+  name = "test-build-api-empty"
+  project = local.project.id
+
+  depends_on = [ google_project_service.sourcerepo ]
+}
